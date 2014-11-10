@@ -25,16 +25,21 @@ data OpenHaddock = ListHs PackageName
 openHaddock :: OpenHaddock -> Sh ()
 
 openHaddock (ListHs package) = do
-    echo $ "searching for '" <> package <> "'"
+    echo $ "searching for haddocks for '" <> package <> "'"
     mapM_ echo =<< findPackageIndex package
 
-openHaddock (OpenHs package) = undefined
+openHaddock (OpenHs package) = do
+    echo $ "opening haddocks for '" <> package <> "'"
+    mapM_ open_ =<< findPackageIndex package
 
 findPackageIndex :: T.Text -> Sh [T.Text]
 findPackageIndex package =
         filter (package `T.isInfixOf`)
     .   map toTextIgnore
     <$> findWhen (return . ("index.html" ==) . filename) ".cabal-sandbox"
+
+open_ :: T.Text -> Sh ()
+open_ = command_ "open" [] . pure
 
 
 main :: IO ()
