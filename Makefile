@@ -14,7 +14,7 @@ specs: build
 	./dist/build/open-haddock-specs/open-haddock-specs
 
 run:
-	cabal run -- --help
+	cabal run -- list text
 
 # docs:
 # generate api documentation
