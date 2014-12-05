@@ -21,47 +21,47 @@ default (T.Text)
 
 type PackageName = T.Text
 type ModuleName  = T.Text
-data OpenHaddock = ListHs PackageName
-                 | OpenHs PackageName
-                 | OpenModule ModuleName
+data OpenHaddock = ListHs FilePath PackageName
+                 | OpenHs FilePath PackageName
+                 | OpenModule FilePath ModuleName
                  deriving (Show, Eq)
 
 
 openHaddock :: OpenHaddock -> Sh ()
 
-openHaddock (ListHs package) = do
+openHaddock (ListHs cabal package) = do
     echo $ "searching for haddocks for '" <> package <> "'"
-    void $ hcPkg "list" [package]
+    void $ hcPkg cabal "list" [package]
 
-openHaddock (OpenHs package) = do
+openHaddock (OpenHs cabal package) = do
     echo $ "opening haddocks for '" <> package <> "'"
-    maybe (return ()) open_ =<< findPackageIndex package
+    maybe (return ()) open_ =<< findPackageIndex cabal package
 
-openHaddock (OpenModule modName) = do
+openHaddock (OpenModule cabal modName) = do
     echo $ "opening haddocks for the package containing '" <> modName <> "'"
-    maybe (return ()) open_ =<< findModuleIndex modName
+    maybe (return ()) open_ =<< findModuleIndex cabal modName
 
-findPackageIndex :: PackageName -> Sh (Maybe FilePath)
-findPackageIndex package = runMaybeT $
+findPackageIndex :: FilePath -> PackageName -> Sh (Maybe FilePath)
+findPackageIndex cabal package = runMaybeT $
     whenExists =<< MaybeT (   parseHaddockHtml
-                          <$> hcPkg "field" [package, "haddock-html"])
+                          <$> hcPkg cabal "field" [package, "haddock-html"])
 
-findModuleIndex :: ModuleName -> Sh (Maybe FilePath)
-findModuleIndex modName =
-        maybe (return Nothing) findPackageIndex
+findModuleIndex :: FilePath -> ModuleName -> Sh (Maybe FilePath)
+findModuleIndex cabal modName =
+        maybe (return Nothing) (findPackageIndex cabal)
     =<< listToMaybe
     .   filter (/= "(no packages)")
     .   map T.strip
     .   filter (T.isPrefixOf "    ")
     .   T.lines
-    <$> hcPkg "find-module" [modName]
+    <$> hcPkg cabal "find-module" [modName]
 
 
 open_ :: FilePath -> Sh ()
 open_ = command_ "open" [] . pure . toTextIgnore
 
-hcPkg :: T.Text -> [T.Text] -> Sh T.Text
-hcPkg c = command1 "cabal" ["hc-pkg"] "sandbox" . (c :)
+hcPkg :: FilePath -> T.Text -> [T.Text] -> Sh T.Text
+hcPkg cabal c = command1 cabal ["hc-pkg"] "sandbox" . (c :)
 
 parseHaddockHtml :: T.Text -> Maybe FilePath
 parseHaddockHtml =
@@ -98,9 +98,14 @@ opt' = subparser $  A.command "list" (info (helper <*> list)
     where
         nameArg = argument (T.pack <$> str)
                            (help "The name of the package to show haddocks for.")
-        list    = ListHs <$> nameArg
-        open    = OpenHs <$> nameArg
-        mod_    = OpenModule <$> nameArg
+        cabalOpt = option (decodeString <$> str)
+                          (  short 'c' <> long "cabal" <> metavar "CABAL"
+                          <> value "cabal"
+                          <> help "The cabal executable name.\
+                                  \ Defaults to 'cabal'.")
+        list    = ListHs     <$> cabalOpt <*> nameArg
+        open    = OpenHs     <$> cabalOpt <*> nameArg
+        mod_    = OpenModule <$> cabalOpt <*> nameArg
 
 opt :: ParserInfo OpenHaddock
 opt = info (helper <*> opt')
