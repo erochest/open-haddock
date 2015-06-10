@@ -61,7 +61,7 @@ open_ :: FilePath -> Sh ()
 open_ = command_ "open" [] . pure . toTextIgnore
 
 hcPkg :: FilePath -> T.Text -> [T.Text] -> Sh T.Text
-hcPkg cabal c = command1 cabal ["hc-pkg"] "sandbox" . (c :)
+hcPkg cabal c = command1 cabal [] "sandbox" . ("hc-pkg" :) . (c :)
 
 parseHaddockHtml :: T.Text -> Maybe FilePath
 parseHaddockHtml =
